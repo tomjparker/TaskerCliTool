@@ -1,0 +1,11 @@
+tasks:
+  build:
+    cmd: "cargo build"
+  test:
+    cmd: "cargo test"
+    depends_on: ["build"]
+  fmt:
+    cmd: "cargo fmt -- --check"
+  ci:
+    cmd: "echo done"
+    depends_on: ["fmt", "test"]
