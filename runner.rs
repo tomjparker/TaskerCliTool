@@ -8,6 +8,15 @@ pub fn run_task(name: &str, config: &Config) -> Result<(), TaskerError> {
     run_recursive(name, config, &mut visited)
 }
 
+fn shell_status(cmd: &str) -> Result<std::process::ExitStatus, std::io::Error> {
+        if cfg!(target_os = "windows") {
+            std::process::Command::new("cmd").arg("/C").arg(cmd).status()
+        } else {
+            std::process::Command::new("sh").arg("-c").arg(cmd).status()
+        }
+    }
+
+
 fn run_recursive(
     name: &str,
     config: &Config,
@@ -22,19 +31,18 @@ fn run_recursive(
         .ok_or_else(|| TaskerError::TaskNotFound(name.to_string()))?;
 
     if let Some(deps) = &task.depends_on {
-        for dep in deps {
-            run_recursive(dep, config, visited)?;
+        let mut deps_sorted = deps.clone(); // copy the Vec<String>
+        deps_sorted.sort(); // sort alphabetically
+        for dep in deps_sorted {
+            run_recursive(&dep, config, visited)?;
         }
     }
 
     println!("Running task: {} -> {}", name, task.cmd);
-    let status = Command::new("sh")
-        .arg("-c")
-        .arg(&task.cmd)
-        .status()?;
 
+    let status = shell_status(&task.cmd)?;
     if !status.success() {
-        eprintln!("Task {} failed.", name);
+        return Err(TaskerError::CommandFailed { task: name.to_string(), code: status.code() });
     }
 
     Ok(())
